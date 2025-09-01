@@ -58,9 +58,8 @@
 ### Installation On Kali Linux
 
 ```
-git clone https://github.com/ultrasecurity/Storm-Breaker
-cd Storm-Breaker
-sudo bash install.sh
+git clone https://github.com/whobcode/superChildvising.git
+cd superChildvising
 sudo python3 -m pip install -r requirements.txt
 sudo python3 st.py
 ```
