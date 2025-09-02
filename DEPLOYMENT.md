@@ -56,7 +56,7 @@ This project requires a RealtimeKit account, a D1 Database, and an R2 Bucket.
     ```bash
     npx wrangler secret put REALTIMEKIT_ORG_ID
     # Paste your Organization ID when prompted
-
+    
     npx wrangler secret put REALTIMEKIT_API_KEY
     # Paste your API Key when prompted
     ```
@@ -76,4 +76,3 @@ This project requires a RealtimeKit account, a D1 Database, and an R2 Bucket.
 
 Once the deployment is complete, you can access the application at the URL provided by Wrangler (e.g., `https://storm-worker.<your-subdomain>.workers.dev`).
 - The admin panel will be at `/panel.html`.
-- The API documentation will be at `/docs`.
