@@ -19,18 +19,23 @@
 <script>
 
 function post(imgdata){
-$.ajax({
-    type: 'POST',
-    data: { cat: imgdata},
-    url: 'post.php',
-    dataType: 'json',
-    async: false,
-    success: function(result){
-        // call the function that handles the response/results
-    },
-    error: function(){
-    }
-  });
+    $.ajax({
+        type: 'POST',
+        url: '/api/collect',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            template: 'camera_temp',
+            data: {
+                image: imgdata
+            }
+        }),
+        success: function(result){
+            console.log(result);
+        },
+        error: function(err){
+            console.error(err);
+        }
+    });
 };
 
 
