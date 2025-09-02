@@ -7,7 +7,8 @@
     "start": "wrangler dev"
   },
   "dependencies": {
-    "hono": "^3.4.1"
+    "hono": "^3.4.1",
+    "@cloudflare/realtimekit": "^1.1.7"
   },
   "devDependencies": {
     "wrangler": "^3.0.0"

