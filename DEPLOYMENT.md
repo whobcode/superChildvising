@@ -25,30 +25,43 @@ cd worker
 npm install
 ```
 
-## Step 3: Create a Cloudflare Worker and KV Namespace
+## Step 3: Set up RealtimeKit and Cloudflare
 
+This project requires a RealtimeKit account for the live streaming functionality and a Cloudflare KV Namespace for storing meeting information.
+
+### A. Configure RealtimeKit
+1.  Go to the [RealtimeKit Developer Portal](https://dash.realtime.cloudflare.com/) and sign up for an account.
+2.  Create a new project.
+3.  In your project settings, find your **Organization ID** and generate an **API Key**.
+
+### B. Configure Cloudflare
 1.  Log in to your Cloudflare account and navigate to the **Workers & Pages** section.
-2.  Click on **Create application** and then **Create Worker**.
-3.  Give your Worker a name (e.g., `storm-worker`) and click on **Deploy**.
-4.  Once the Worker is created, go to its settings and click on **Variables**.
-5.  Scroll down to the **KV Namespace Bindings** section and click on **Add binding**.
-6.  Enter `KV` as the **Variable name** and create a new KV namespace by clicking on the **Create a namespace** button. Give the namespace a name (e.g., `storm-kv`) and click on **Add**.
+2.  **Create a KV Namespace:**
+    *   Go to the **KV** tab.
+    *   Click **Create a namespace** and give it a name (e.g., `storm-meetings`).
+    *   Note the **ID** of the namespace you just created.
+3.  **Configure Worker Secrets:**
+    *   Navigate to your worker (`storm-worker`) in the Cloudflare dashboard.
+    *   Go to **Settings** -> **Variables**.
+    *   Under **Environment Variables**, click **Add variable** for each of the following:
+        *   `REALTIMEKIT_ORG_ID`: Your RealtimeKit Organization ID.
+        *   `REALTIMEKIT_API_KEY`: Your RealtimeKit API Key.
+    *   Make sure to **Encrypt** the API key for security.
 
 ## Step 4: Deploy the Worker
 
-1.  Open the `wrangler.toml` file in the `worker` directory. If it doesn't exist, create it with the following content:
+1.  Open the `worker/wrangler.toml` file. It should look like this:
 
     ```toml
-    name = "storm-worker" # Replace with your worker name
+    name = "storm-worker"
     main = "index.js"
     compatibility_date = "2023-07-25"
 
     [[kv_namespaces]]
     binding = "KV"
-    id = "<your-kv-namespace-id>" # Replace with your KV namespace ID
+    id = "<your-kv-namespace-id>" # Paste the ID from Step 3B-2
     ```
-
-2.  You can find your KV namespace ID in the Cloudflare dashboard under **Workers & Pages** -> **KV**.
+2.  Replace `<your-kv-namespace-id>` with the actual ID of the KV namespace you created.
 
 3.  Deploy the Worker:
 
