@@ -1,0 +1,29 @@
+{
+  "name": "storm-worker",
+  "main": "src/index.js",
+  "compatibility_date": "2023-07-25",
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "<your-kv-namespace-id>"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "storm-db",
+      "database_id": "<your-d1-database-id>"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "storm-bucket",
+      "preview_bucket_name": "storm-bucket-preview"
+    }
+  ],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "public/"
+  }
+}

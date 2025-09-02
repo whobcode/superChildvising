@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="./assets/css/bootstrap.min.css" rel="stylesheet">
+    <link href="./assets/css/light-theme.min.css" rel="stylesheet">
+    <title>Storm Breaker - V3</title>
+
+</head>
+
+
+<body id="ourbody">
+
+<div id="links"></div>
+
+<div class="mt-2 d-flex justify-content-center">
+    <button class="btn btn-primary m-2" id="btn-view-stream">View Live Stream</button>
+    <button class="btn btn-danger m-2" id="btn-end-stream" style="display: none;">End Live Stream</button>
+</div>
+
+<div id="stream-container" style="display: none; height: 70vh; width: 100%;">
+    <rtk-meeting id="rtk-meeting-viewer" style="height: 100%; width: 100%;"></rtk-meeting>
+</div>
+
+<hr/>
+
+<h3 class="text-center mt-4">General Logs</h3>
+<div class="mt-2 d-flex justify-content-center">
+    <textarea class="form-control w-75 m-3" placeholder="Waiting for logs..." id="result" rows="15"></textarea>
+</div>
+<div class="mt-2 d-flex justify-content-center">
+    <button class="btn btn-warning m-2" id="btn-clear-logs">Clear Logs</button>
+</div>
+
+</body>
+</html>
+
+<script type="module">
+    import { defineCustomElements } from 'https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.1.7/loader/index.es2017.js';
+    defineCustomElements();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@latest/dist/realtimekit-client.iife.js"></script>
+<script src="./assets/js/jquery.min.js"></script>
+<script src="./assets/js/script.js"></script>
+<script src="./assets/js/sweetalert2.min.js"></script>
+<script src="./assets/js/growl-notification.min.js"></script>

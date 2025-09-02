@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Live Stream</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script type="module">
+      import { defineCustomElements } from 'https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.1.7/loader/index.es2017.js';
+      defineCustomElements();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@latest/dist/realtimekit-client.iife.js"></script>
+  </head>
+  <body>
+    <rtk-meeting id="rtk-meeting-streamer" style="height: 100vh; width: 100vw;"></rtk-meeting>
+
+    <script>
+      async function initStream() {
+        try {
+          // 1. Create a meeting on the backend
+          const resp = await fetch('/api/meetings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'Camera Stream' }),
+          });
+          const { authToken } = await resp.json();
+
+          if (!authToken) {
+            alert('Failed to get auth token');
+            return;
+          }
+
+          // 2. Initialize the RealtimeKit client
+          const meeting = await RealtimeKitClient.init({
+            authToken,
+            defaults: {
+              audio: false,
+              video: true,
+            },
+          });
+
+          // 3. Mount the meeting UI
+          document.getElementById('rtk-meeting-streamer').meeting = meeting;
+
+          // 4. Join the room
+          meeting.joinRoom();
+
+        } catch (e) {
+          console.error(e);
+          alert('An error occurred. Check the console.');
+        }
+      }
+
+      initStream();
+    </script>
+  </body>
+</html>
