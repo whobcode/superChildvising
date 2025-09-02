@@ -1,84 +1,90 @@
-### Features:
+# Deployment Instructions
 
-- Obtain Device Information Without Any Permission !
-- Access Location [SMARTPHONES]
-- Access Webcam
-- Access Microphone
+This document provides instructions on how to deploy the application to Cloudflare.
 
-<br>
+## Prerequisites
 
-### Update Log:
+- A Cloudflare account.
+- `npm` and `node.js` installed on your local machine.
 
-- Second (latest) Update on November 4th , 2022 .
-- The overall structure of the tool is programmed from the beginning and is available as a web panel (in previous versions, the tool was available in the command line).
-- Previous version's bugs fixed !
-- Auto-download Ngrok Added !
-- The templates have been optimized !
-- Logs can be downloaded (NEW) !
-- Clear log Added !
-- It can be uploaded on a personal host (you won't have the Ngork problems anymore)
-- You can start and stop the listener anytime ! (At will)
-- Beautified user interface (NEW) !
+## Step 1: Clone the Repository
 
+Clone the repository to your local machine:
 
-> We have deleted Ngrok in the new version of Storm breaker and entrusted the user with running and sharing the localhost . So please note that Storm breaker runs a localhost for you and you have to start the Ngrok on your intended port yourself .
-> <br>
-
-#### Attention! :
-
-> This version can be run on both local host and your personal domain and host . However , you can use it for both situations. If your country has suspended the Ngrok service, or your country's banned Ngrok, or your victim can't open the Ngrok link (for the reasons such as : He sees such a link as suspicious, Or if this service is suspended in his country) We suggest using the tool on your personal host and domain .
-> <br>
-
-## Default username and password:
-
-- `username` : `admin`
-- `password` : `admin`
-- You can edit the config.php file to change the username and password .
-  <br>
-
-### Dependencies
-
-**** requires following programs to run properly -
-
-- `php`
-- `python3`
-- `git`
-- `Ngrok`
-
-
-
-### Platforms Tested
-
-- Kali Linux 2022
-- macOS Big Sur / M1
-- Termux (android)
-- Personal host (direct admin and cPanel)
-  <br>
-
-### Installation On Kali Linux
-
-```
-git clone https://github.com/whobcode/superChildvising.git
-cd superChildvising
-sudo python3 -m pip install -r requirements.txt
-sudo python3 st.py
+```bash
+git clone <repository-url>
+cd <repository-name>
 ```
 
-<br>
+## Step 2: Install Dependencies
 
-**`how to run personal host 👇`**
+Install the dependencies for the Cloudflare Worker:
 
-> Zip the contents of the storm-web folder completely and upload it to the public_html path .
+```bash
+cd worker
+npm install
+```
 
-> Note that the tool should not be opened in a path like this > yourdomain.com/st-web
-> Instead , it should be opened purely in the public_html path (i.e. : don't just zip the storm-web folder itself, but manually zip its contents (the index.php file and other belongings should be in the public_html path)
+## Step 3: Set up RealtimeKit and Cloudflare
 
-#### Attention!:
+This project requires a RealtimeKit account for the live streaming functionality and a Cloudflare KV Namespace for storing meeting information.
 
-> Note that to use this tool on your Localhost , You also need SSL . Because many of the tool's capabilities require SSL .
+### A. Configure RealtimeKit
+1.  Go to the [RealtimeKit Developer Portal](https://dash.realtime.cloudflare.com/) and sign up for an account.
+2.  Create a new project.
+3.  In your project settings, find your **Organization ID** and generate an **API Key**.
 
-#### Attention!:
+### B. Configure Cloudflare
+1.  Log in to your Cloudflare account and navigate to the **Workers & Pages** section.
+2.  **Create a KV Namespace:**
+    *   Go to the **KV** tab.
+    *   Click **Create a namespace** and give it a name (e.g., `storm-meetings`).
+    *   Note the **ID** of the namespace you just created.
+3.  **Configure Worker Secrets:**
+    *   Navigate to your worker (`storm-worker`) in the Cloudflare dashboard.
+    *   Go to **Settings** -> **Variables**.
+    *   Under **Environment Variables**, click **Add variable** for each of the following:
+        *   `REALTIMEKIT_ORG_ID`: Your RealtimeKit Organization ID.
+        *   `REALTIMEKIT_API_KEY`: Your RealtimeKit API Key.
+    *   Make sure to **Encrypt** the API key for security.
 
-> To run ngrok on termux you need to enable your personal hotspot and cellular network.
+## Step 4: Deploy the Worker
 
-</p>
+1.  Open the `worker/wrangler.toml` file. It should look like this:
+
+    ```toml
+    name = "storm-worker"
+    main = "index.js"
+    compatibility_date = "2023-07-25"
+
+    [[kv_namespaces]]
+    binding = "KV"
+    id = "<your-kv-namespace-id>" # Paste the ID from Step 3B-2
+    ```
+2.  Replace `<your-kv-namespace-id>` with the actual ID of the KV namespace you created.
+
+3.  Deploy the Worker:
+
+    ```bash
+    npx wrangler deploy
+    ```
+
+## Step 5: Deploy the Static Assets to Cloudflare Pages
+
+1.  Go to the **Workers & Pages** section in the Cloudflare dashboard and click on the **Pages** tab.
+2.  Click on **Create a project** and select **Upload assets**.
+3.  Give your project a name (e.g., `storm-frontend`) and drag and drop the `public` directory into the upload area.
+4.  Click on **Deploy site**.
+
+## Step 6: Access the Application
+
+Once the deployment is complete, you can access the application at the URL provided by Cloudflare Pages.
+
+## How the Application Works
+
+The application is now split into two parts:
+
+-   **Frontend**: The static assets (HTML, CSS, JS) are served by Cloudflare Pages.
+-   **Backend**: The Cloudflare Worker handles the API requests for login, data collection, and data retrieval.
+
+The frontend makes API requests to the Cloudflare Worker. The Worker uses a Cloudflare KV namespace to store the collected data.

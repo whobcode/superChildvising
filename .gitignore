@@ -4,3 +4,8 @@ ngrok.zip
 ngrok.tgz
 ngrok
 module/__pycache__/
+node_modules/**
+node_modules/
+node_modules/@cloudflare/workerd-linux-64/bin/workerd
+
+node_modules/
