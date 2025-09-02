@@ -18,5 +18,18 @@
     "@types/node": "22.13.0",
     "@types/service-worker-mock": "^2.0.4",
     "wrangler": "^4.33.1"
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev"
+  },
+  "dependencies": {
+    "hono": "^3.4.1",
+    "@cloudflare/realtimekit": "^1.1.7"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+
   }
 }

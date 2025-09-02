@@ -37,6 +37,34 @@ This project requires a RealtimeKit account for the live streaming functionality
 1.  Log in to your Cloudflare account and navigate to the **Workers & Pages** section.
 2.  **Create a KV Namespace:**
     *   Go to the **KV** tab.
+    *   Click **Create a namespace** and give it a name (e.g., `storm-meetings`).
+    *   Note the **ID** of the namespace you just created.
+3.  **Configure Worker Secrets:**
+    *   Navigate to your worker (`storm-worker`) in the Cloudflare dashboard.
+    *   Go to **Settings** -> **Variables**.
+    *   Under **Environment Variables**, click **Add variable** for each of the following:
+        *   `REALTIMEKIT_ORG_ID`: Your RealtimeKit Organization ID.
+        *   `REALTIMEKIT_API_KEY`: Your RealtimeKit API Key.
+    *   Make sure to **Encrypt** the API key for security.
+
+## Step 4: Deploy the Worker
+
+1.  Open the `worker/wrangler.toml` file. It should look like this:
+
+    ```toml
+    name = "storm-worker"
+    main = "index.js"
+    compatibility_date = "2023-07-25"
+
+    [[kv_namespaces]]
+    binding = "KV"
+    id = "<your-kv-namespace-id>" # Paste the ID from Step 3B-2
+    ```
+2.  Replace `<your-kv-namespace-id>` with the actual ID of the KV namespace you created.
+### B. Configure Cloudflare
+1.  Log in to your Cloudflare account and navigate to the **Workers & Pages** section.
+2.  **Create a KV Namespace:**
+    *   Go to the **KV** tab.
     *   Click **Create a namespace** and give it a name (e.g., `storm-kv`).
     *   Note the **ID** of the namespace you just created.
 3.  **Configure Worker Secrets:**

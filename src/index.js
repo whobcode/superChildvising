@@ -33,13 +33,19 @@ const MeetingSchema = z.object({
     title: z.string().optional(),
 });
 
+import { RealtimeKitAPI } from '@cloudflare/realtimekit';
+
+const app = new Hono();
+
 // --- Authentication ---
 const USERS = {
   admin: 'admin',
 };
 
 app.post('/api/login', openapi.json(LoginSchema), async (c) => {
-  const { username, password } = c.req.valid('json');
+  const { username, password } = c.req.valid('json')
+app.post('/api/login', async (c) => {
+  const { username, password } = await c.req.json();
   if (USERS[username] === password) {
     return c.json({ success: true, token: 'dummy-token' });
   }
@@ -56,9 +62,11 @@ app.post('/api/clear', async (c) => {
   await c.env.KV.put('results', '');
   return c.json({ success: true });
 });
-
 app.post('/api/collect', openapi.json(CollectSchema), async (c) => {
   const { template, data } = c.req.valid('json');
+app.post('/api/collect', async (c) => {
+  const { template, data } = await c.req.json();
+  
   const key = `results`;
   const existingData = await c.env.KV.get(key);
   const newData = `${existingData || ''}\n[${template}] ${JSON.stringify(data)}`;
@@ -83,6 +91,9 @@ const ACTIVE_MEETING_KEY = 'active_meeting_id';
 
 app.post('/api/meetings', openapi.json(MeetingSchema), async (c) => {
   const { title } = c.req.valid('json');
+app.post('/api/meetings', async (c) => {
+  const { title } = await c.req.json();
+
 
   const realtime = new RealtimeKitAPI(c.env.REALTIMEKIT_API_KEY, {
     realtimeKitOrgId: c.env.REALTIMEKIT_ORG_ID,
