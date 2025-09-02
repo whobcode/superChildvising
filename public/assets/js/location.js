@@ -1,3 +1,8 @@
+/**
+ * This script collects geolocation information.
+ * It is used by the `nearyou` and `weather` templates.
+ * The collected data is sent to the /api/collect endpoint.
+ */
 function locate()
 {
   if(navigator.geolocation)

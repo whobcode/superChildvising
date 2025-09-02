@@ -1,0 +1,11 @@
+{
+  "name": "storm-worker",
+  "main": "src/index.js",
+  "compatibility_date": "2023-07-25",
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "<your-kv-namespace-id>"
+    }
+  ]
+}
