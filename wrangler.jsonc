@@ -1,11 +1,15 @@
 {
+
+	"observability":{
+			"enabled": true
+    	},
 	"name": "storm-worker",
 	"main": "src/index.js",
 	"compatibility_date": "2025-08-25",
 	"kv_namespaces": [
 		{
-                    "binding": "KV",
-                    "id": "3a5c0f4c328a42fbb97466a2d73d7115"
+                        "binding": "KV",
+                        "id": "3a5c0f4c328a42fbb97466a2d73d7115"
                  }
 	],
 	"d1_databases": [
@@ -22,7 +26,7 @@
 		}
 	],
 	"assets": {
-		"binding": "ASSETS",
-		"directory": "public/"
+			"binding": "ASSETS",
+			"directory": "public/"
 	}
 }
