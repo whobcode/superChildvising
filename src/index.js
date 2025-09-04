@@ -358,14 +358,14 @@ class EndMeetingRoute extends OpenAPIRoute {
 
 
 // --- Register Routes ---
-app.get("/ping", PingRoute);
-app.post('/api/login', LoginRoute);
-app.get('/api/results', GetResultsRoute);
-app.post('/api/clear', ClearRoute);
-app.post('/api/collect', CollectRoute);
-app.get('/api/templates', ListTemplatesRoute);
-app.post('/api/meetings', CreateMeetingRoute);
-app.post('/api/meetings/end', EndMeetingRoute);
+app.get("/ping", new PingRoute());
+app.post('/api/login', new LoginRoute());
+app.get('/api/results', new GetResultsRoute());
+app.post('/api/clear', new ClearRoute());
+app.post('/api/collect', new CollectRoute());
+app.get('/api/templates', new ListTemplatesRoute());
+app.post('/api/meetings', new CreateMeetingRoute());
+app.post('/api/meetings/end', new EndMeetingRoute());
 
 
 // --- R2 File Serving (not part of OpenAPI spec) ---
