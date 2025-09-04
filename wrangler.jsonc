@@ -1,16 +1,16 @@
 {
 	"name": "storm-worker",
 	"main": "src/index.js",
-	"compatibility_date": "2025-07-25",
+	"compatibility_date": "2025-08-25",
 	"kv_namespaces": [
 		{
-                    "binding": "KV_BINDING",
+                    "binding": "KV",
                     "id": "3a5c0f4c328a42fbb97466a2d73d7115"
                  }
 	],
 	"d1_databases": [
 		{
-			"binding": "D1Database",
+			"binding": "DB",
 			"database_name": "D1Database",
 			"database_id": "4e244538-34af-48d5-bac3-b264265cbc81"
 		}
