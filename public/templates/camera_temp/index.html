@@ -3,32 +3,41 @@
   <head>
     <title>Live Stream</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Import and define custom elements for the RealtimeKit UI. -->
     <script type="module">
       import { defineCustomElements } from 'https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.1.7/loader/index.es2017.js';
       defineCustomElements();
     </script>
+    <!-- Import the RealtimeKit client library. -->
     <script src="https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@latest/dist/realtimekit-client.iife.js"></script>
   </head>
   <body>
+    <!-- RealtimeKit meeting UI component. -->
     <rtk-meeting id="rtk-meeting-streamer" style="height: 100vh; width: 100vw;"></rtk-meeting>
 
     <script>
+      /**
+       * Initializes the video stream and joins a RealtimeKit meeting.
+       */
       async function initStream() {
         try {
-          // 1. Create a meeting on the backend
+          // 1. Create a meeting on the backend by sending a POST request to the /api/meetings endpoint.
           const resp = await fetch('/api/meetings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: 'Camera Stream' }),
           });
+          // a. Get the authentication token from the response.
           const { authToken } = await resp.json();
 
+          // b. If no authentication token is returned, alert the user and exit.
           if (!authToken) {
             alert('Failed to get auth token');
             return;
           }
 
-          // 2. Initialize the RealtimeKit client
+          // 2. Initialize the RealtimeKit client with the authentication token.
+          //    This is configured to enable video and disable audio by default.
           const meeting = await RealtimeKitClient.init({
             authToken,
             defaults: {
@@ -37,18 +46,20 @@
             },
           });
 
-          // 3. Mount the meeting UI
+          // 3. Mount the meeting UI by assigning the meeting object to the custom element.
           document.getElementById('rtk-meeting-streamer').meeting = meeting;
 
-          // 4. Join the room
+          // 4. Join the meeting room to start the video stream.
           meeting.joinRoom();
 
         } catch (e) {
+          // a. Log any errors to the console and alert the user.
           console.error(e);
           alert('An error occurred. Check the console.');
         }
       }
 
+      // Automatically initialize the stream when the page loads.
       initStream();
     </script>
   </body>
