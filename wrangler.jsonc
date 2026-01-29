@@ -6,6 +6,12 @@
 	"name": "storm-worker",
 	"main": "src/index.js",
 	"compatibility_date": "2025-08-25",
+	"routes": [
+		{
+			"pattern": "track.hwmnbn.me",
+			"custom_domain": true
+		}
+	],
 	"kv_namespaces": [
 		{
                         "binding": "KV",

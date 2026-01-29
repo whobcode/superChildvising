@@ -10,7 +10,7 @@ Storm Worker is a Cloudflare Workers-based surveillance and data collection appl
 
 - **Backend Framework**: Hono.js (lightweight web framework for Cloudflare Workers)
 - **API Documentation**: OpenAPI 3.1.0 with Chanfana integration
-- **Real-time Streaming**: `@cloudflare/realtimekit` (version 1.1.7)
+- **Real-time Streaming**: `@cloudflare/realtimekit` (version 1.2.3)
 - **Schema Validation**: Zod with OpenAPI extensions
 - **Storage**:
   - D1 (SQL database for logs)
@@ -273,7 +273,7 @@ Schema:
 - `chanfana` (^2.6.3) - OpenAPI integration
 - `@asteasolutions/zod-to-openapi` (^7.2.0) - Schema validation
 - `zod` (^3.24.1) - Schema validation
-- `@cloudflare/realtimekit` (^1.1.7) - Real-time communication
+- `@cloudflare/realtimekit` (^1.2.3) - Real-time communication
 
 ### External Services:
 - **Cloudflare RealtimeKit API**: Requires API key and Organization ID
@@ -282,8 +282,8 @@ Schema:
   - Not native Cloudflare infrastructure
 
 ### CDN Resources:
-- `https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.1.7/` - UI components
-- `https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@latest/` - Client library
+- `https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.0.5/` - UI components
+- `https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@1.2.3/dist/browser.js` - Browser client
 - jQuery, Bootstrap, SweetAlert2, other UI libraries
 
 ---

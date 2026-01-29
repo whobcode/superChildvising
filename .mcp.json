@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "netmcp": {
+      "type": "http",
+      "url": "https://netmcp.hwmnbn.me/mcp"
+    },
+    "cloudflareDocs": {
+      "type": "http",
+      "url": "https://docs.mcp.cloudflare.com/mcp"
+    },
+    "pwmcpport": {
+      "type": "http",
+      "url": "https://portpwmcp.hwmnbn.me/mcp"
+    },
+    "workers-bind": {
+      "type": "http",
+      "url": "https://bindings.mcp.cloudflare.com/mcp"
+    },
+    "workers-build": {
+      "type": "http",
+      "url": "https://builds.mcp.cloudflare.com/mcp"
+    },
+    "dns-flare": {
+      "type": "http",
+      "url": "https://dns-analytics.mcp.cloudflare.com/mcp"
+    },
+    "arag-flare": {
+      "type": "http",
+      "url": "https://autorag.mcp.cloudflare.com/mcp"
+    },
+    "ai-gateway-flare": {
+      "type": "http",
+      "url": "https://ai-gateway.mcp.cloudflare.com/mcp"
+    },
+    "observe": {
+      "type": "http",
+      "url": "https://observability.mcp.cloudflare.com/mcp"
+    },
+    "audit-logs": {
+      "type": "http",
+      "url": "https://auditlogs.mcp.cloudflare.com/mcp"
+    },
+    "netmcp2": {
+      "type": "http",
+      "url": "https://netmcp.hwmnbn.me/mcp"
+    },
+    "pwmcp": {
+      "type": "http",
+      "url": "https://pwmcp.hwmnbn.me/mcp"
+    }
+  }
+}

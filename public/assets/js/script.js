@@ -2,10 +2,54 @@ if (!localStorage.getItem('token')) {
     window.location.href = 'login.html';
 }
 
+function safeJsonParse(value) {
+    if (typeof value !== 'string') return value;
+    try {
+        return JSON.parse(value);
+    } catch {
+        return value;
+    }
+}
+
+function formatLogEntry(entry) {
+    const timestamp = entry?.timestamp ?? '';
+    const template = entry?.template ?? '';
+    const id = entry?.id ?? '';
+
+    const parsedData = safeJsonParse(entry?.data);
+    let dataString = '';
+    if (parsedData === undefined) {
+        dataString = '';
+    } else if (typeof parsedData === 'string') {
+        dataString = parsedData;
+    } else {
+        dataString = JSON.stringify(parsedData, null, 2);
+    }
+
+    return `#${id} ${timestamp} [${template}]\n${dataString}`;
+}
+
+function formatLogs(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) return '';
+    return entries.map(formatLogEntry).join('\n\n');
+}
+
 function Listener() {
-    $.get("/api/results", function(data) {
-        if ($("#result").val() !== data) {
-            $("#result").val(data);
+    $.ajax({
+        url: "/api/results",
+        method: "GET",
+        dataType: "json",
+        success: function(data) {
+            const formatted = formatLogs(data);
+            if ($("#result").val() !== formatted) {
+                $("#result").val(formatted);
+            }
+        },
+        error: function(xhr) {
+            const msg = `Failed to fetch logs (${xhr.status}).`;
+            if ($("#result").val() !== msg) {
+                $("#result").val(msg);
+            }
         }
     });
 }

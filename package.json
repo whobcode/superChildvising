@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.2.0",
-    "@cloudflare/realtimekit": "^1.1.7",
+    "@cloudflare/realtimekit": "^1.2.3",
     "chanfana": "^2.6.3",
     "hono": "^4.6.20",
     "zod": "^3.24.1"
