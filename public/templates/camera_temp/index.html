@@ -3,45 +3,36 @@
   <head>
     <title>Live Stream</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script type="module">
-      import { defineCustomElements } from 'https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.0.5/loader/index.es2017.js';
-      defineCustomElements();
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@1.2.3/dist/browser.js"></script>
+    <script src="/assets/js/stream-webrtc.js"></script>
   </head>
   <body>
-    <rtk-meeting id="rtk-meeting-streamer" style="height: 100vh; width: 100vw;"></rtk-meeting>
+    <video id="input-video" style="height: 100vh; width: 100vw;" autoplay muted playsinline></video>
 
     <script>
+      let whipClient = null;
       async function initStream() {
         try {
-          // 1. Create a meeting on the backend
-          const resp = await fetch('/api/meetings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: 'Camera Stream' }),
-          });
-          const { authToken } = await resp.json();
+          const resp = await fetch('/api/stream/publish', { method: 'POST' });
+          const { whipUrl } = await resp.json();
 
-          if (!authToken) {
-            alert('Failed to get auth token');
+          if (!whipUrl) {
+            alert('Failed to get Stream publish URL');
             return;
           }
 
-          // 2. Initialize the RealtimeKit client
-          const meeting = await RealtimeKitClient.init({
-            authToken,
-            defaults: {
-              audio: false,
-              video: true,
-            },
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
           });
 
-          // 3. Mount the meeting UI
-          document.getElementById('rtk-meeting-streamer').meeting = meeting;
+          const videoEl = document.getElementById('input-video');
+          videoEl.srcObject = stream;
+          videoEl.muted = true;
+          videoEl.playsInline = true;
+          await videoEl.play().catch(() => {});
 
-          // 4. Join the room
-          meeting.joinRoom();
+          whipClient = new CloudflareStreamWHIPClient({ url: whipUrl, stream, videoEl });
+          await whipClient.start();
 
         } catch (e) {
           console.error(e);
@@ -50,6 +41,13 @@
       }
 
       initStream();
+
+      window.addEventListener('pagehide', () => {
+        try {
+          if (whipClient) whipClient.stop({ stopTracks: true });
+        } catch {
+        }
+      });
     </script>
   </body>
 </html>

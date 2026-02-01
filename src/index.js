@@ -2,13 +2,135 @@ import { Hono } from "hono";
 import { OpenAPIRoute, fromHono, getSwaggerUI } from "chanfana";
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
-import RealtimeKitAPI from '@cloudflare/realtimekit';
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
 extendZodWithOpenApi(z);
 
 const app = new Hono();
 const registry = new OpenAPIRegistry();
+
+const ACTIVE_STREAM_KEY = 'active_stream_live_input';
+const MEVID_STREAM_SOURCE = 'superchildvising';
+
+function getRequiredStreamEnv(env) {
+    const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken = env.CLOUDFLARE_API_TOKEN;
+    if (!accountId || !apiToken) {
+        throw new Error('Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN.');
+    }
+    return { accountId, apiToken };
+}
+
+async function callStreamApi(env, path, init) {
+    const { accountId, apiToken } = getRequiredStreamEnv(env);
+    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream${path}`;
+    const resp = await fetch(url, {
+        ...init,
+        headers: {
+            Authorization: `Bearer ${apiToken}`,
+            ...(init?.headers ?? {}),
+        },
+    });
+
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json?.success) {
+        const errors = json?.errors ? JSON.stringify(json.errors) : `HTTP ${resp.status}`;
+        throw new Error(`Cloudflare Stream API error: ${errors}`);
+    }
+    return json;
+}
+
+function getMevidStreamConfig(env) {
+    const ingestUrl = env.MEVID_STREAM_INGEST_URL;
+    const token = env.MEVID_STREAM_TOKEN;
+    if (!ingestUrl || !token) return null;
+    return { ingestUrl, token };
+}
+
+async function notifyMevidStream(env, payload) {
+    const config = getMevidStreamConfig(env);
+    if (!config) return false;
+
+    try {
+        const resp = await fetch(config.ingestUrl, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${config.token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!resp.ok) {
+            const text = await resp.text().catch(() => '');
+            console.error('Failed to notify mevid stream ingest:', resp.status, text);
+            return false;
+        }
+        return true;
+    } catch (error) {
+        console.error('Failed to notify mevid stream ingest:', error);
+        return false;
+    }
+}
+
+function normalizeLiveInput(result) {
+    const liveInputId = result?.uid;
+    const whipUrl = result?.webRTC?.url;
+    const whepUrl = result?.webRTCPlayback?.url;
+    if (!liveInputId || !whipUrl || !whepUrl) {
+        throw new Error('Unexpected Cloudflare Stream live input response shape.');
+    }
+    return { liveInputId, whipUrl, whepUrl };
+}
+
+async function createLiveInput(env) {
+    const json = await callStreamApi(env, '/live_inputs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            meta: { name: 'storm-worker-live-input' },
+        }),
+    });
+    return normalizeLiveInput(json.result);
+}
+
+async function ensureLiveInput(env) {
+    const storedRaw = await env.KV.get(ACTIVE_STREAM_KEY);
+    if (storedRaw) {
+        try {
+            const stored = JSON.parse(storedRaw);
+            if (stored?.liveInputId && stored?.whipUrl && stored?.whepUrl) return stored;
+        } catch {
+            // Ignore and recreate
+        }
+    }
+
+    const created = await createLiveInput(env);
+    await env.KV.put(ACTIVE_STREAM_KEY, JSON.stringify(created));
+    return created;
+}
+
+async function deleteLiveInput(env, liveInputId) {
+    try {
+        await callStreamApi(env, `/live_inputs/${liveInputId}`, { method: 'DELETE' });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function base64ToArrayBuffer(value) {
+    if (typeof value !== 'string') {
+        throw new Error('Expected base64 string.');
+    }
+
+    const base64 = value.includes(',') ? value.split(',')[1] : value;
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
 
 // --- Schemas ---
 const LoginSchema = z.object({
@@ -21,8 +143,14 @@ const CollectSchema = z.object({
     data: z.any().openapi({ example: { "key": "value" } }),
 });
 
-const MeetingSchema = z.object({
-    title: z.string().optional().openapi({ example: 'My Meeting' }),
+const StreamPublishResponseSchema = z.object({
+    liveInputId: z.string().openapi({ example: '9a7806061c88ada191ed06f989cc3dac' }),
+    whipUrl: z.string().openapi({ example: 'https://.../whip/9a7806061c88ada191ed06f989cc3dac' }),
+});
+
+const StreamPlaybackResponseSchema = z.object({
+    liveInputId: z.string().openapi({ example: '9a7806061c88ada191ed06f989cc3dac' }),
+    whepUrl: z.string().openapi({ example: 'https://.../whep/9a7806061c88ada191ed06f989cc3dac' }),
 });
 
 // --- Routes ---
@@ -205,14 +333,13 @@ class CollectRoute extends OpenAPIRoute {
 
             if (template === 'camera_temp' && data.image) {
                 const key = `image-${Date.now()}.png`;
-                const body = Buffer.from(data.image, 'base64');
+                const body = base64ToArrayBuffer(data.image);
                 await c.env.BUCKET.put(key, body, { httpMetadata: { contentType: 'image/png' } });
                 fileUrl = `/r2/${key}`;
                 logData = { ...data, imageUrl: fileUrl, image: undefined };
             } else if (template === 'microphone' && data.audio) {
                 const key = `audio-${Date.now()}.wav`;
-                const audioBase64 = data.audio.split(',')[1];
-                const body = Buffer.from(audioBase64, 'base64');
+                const body = base64ToArrayBuffer(data.audio);
                 await c.env.BUCKET.put(key, body, { httpMetadata: { contentType: 'audio/wav' } });
                 fileUrl = `/r2/${key}`;
                 logData = { ...data, audioUrl: fileUrl, audio: undefined };
@@ -259,84 +386,83 @@ class ListTemplatesRoute extends OpenAPIRoute {
     }
 }
 
-class CreateMeetingRoute extends OpenAPIRoute {
+class GetStreamPublishRoute extends OpenAPIRoute {
     schema = {
-        tags: ["Meetings"],
-        summary: "Create or join a real-time meeting",
-        request: {
-            body: {
-                content: {
-                    "application/json": {
-                        schema: MeetingSchema,
-                    },
-                },
-            },
-        },
+        tags: ["Stream"],
+        summary: "Get Stream WHIP publish endpoint",
         responses: {
             "200": {
-                description: "Meeting details",
+                description: "WHIP endpoint for publishing",
                 content: {
                     "application/json": {
-                        schema: z.object({
-                            meetingId: z.string(),
-                            authToken: z.string(),
-                        }),
+                        schema: StreamPublishResponseSchema,
                     },
                 },
             },
             "500": {
-                description: "Failed to create or join meeting",
+                description: "Failed to get WHIP endpoint",
             }
         }
     }
 
     async handle(c) {
-        const { title } = await c.req.json();
-        const ACTIVE_MEETING_KEY = 'active_meeting_id';
-
-        const realtime = new RealtimeKitAPI(c.env.REALTIMEKIT_API_KEY, {
-            realtimeKitOrgId: c.env.REALTIMEKIT_ORG_ID,
-        });
-
         try {
-            let meetingId = await c.env.KV.get(ACTIVE_MEETING_KEY);
-
-            if (!meetingId) {
-                console.log('No active meeting found, creating a new one.');
-                const meeting = await realtime.createMeeting({
-                    title: title || 'Live Stream',
-                    recordOnStart: true,
-                });
-                meetingId = meeting.id;
-                await c.env.KV.put(ACTIVE_MEETING_KEY, meetingId);
-            } else {
-                console.log(`Found active meeting: ${meetingId}`);
-            }
-
-            const participant = await realtime.addParticipant(meetingId, {
-                name: 'Viewer',
-                presetName: 'group_call_participant',
-                customParticipantId: 'viewer-' + Math.random().toString(36).substring(7),
-            });
-
-            return c.json({
-                meetingId: meetingId,
-                authToken: participant.token,
-            });
+            const stream = await ensureLiveInput(c.env);
+            c.executionCtx.waitUntil(
+                notifyMevidStream(c.env, {
+                    source: MEVID_STREAM_SOURCE,
+                    status: 'live',
+                    liveInputId: stream.liveInputId,
+                    whipUrl: stream.whipUrl,
+                    whepUrl: stream.whepUrl,
+                    startedAt: new Date().toISOString(),
+                })
+            );
+            return c.json({ liveInputId: stream.liveInputId, whipUrl: stream.whipUrl });
         } catch (error) {
             console.error(error);
-            return c.json({ success: false, error: 'Failed to create or join meeting' }, 500);
+            return c.json({ success: false, error: 'Failed to get WHIP endpoint' }, 500);
         }
     }
 }
 
-class EndMeetingRoute extends OpenAPIRoute {
+class GetStreamPlaybackRoute extends OpenAPIRoute {
     schema = {
-        tags: ["Meetings"],
-        summary: "End the active meeting",
+        tags: ["Stream"],
+        summary: "Get Stream WHEP playback endpoint",
         responses: {
             "200": {
-                description: "Meeting ended",
+                description: "WHEP endpoint for playback",
+                content: {
+                    "application/json": {
+                        schema: StreamPlaybackResponseSchema,
+                    },
+                },
+            },
+            "500": {
+                description: "Failed to get WHEP endpoint",
+            }
+        }
+    }
+
+    async handle(c) {
+        try {
+            const stream = await ensureLiveInput(c.env);
+            return c.json({ liveInputId: stream.liveInputId, whepUrl: stream.whepUrl });
+        } catch (error) {
+            console.error(error);
+            return c.json({ success: false, error: 'Failed to get WHEP endpoint' }, 500);
+        }
+    }
+}
+
+class EndStreamRoute extends OpenAPIRoute {
+    schema = {
+        tags: ["Stream"],
+        summary: "End the active Stream live input",
+        responses: {
+            "200": {
+                description: "Stream ended",
                 content: {
                     "application/json": {
                         schema: z.object({
@@ -350,9 +476,32 @@ class EndMeetingRoute extends OpenAPIRoute {
     }
 
     async handle(c) {
-        const ACTIVE_MEETING_KEY = 'active_meeting_id';
-        await c.env.KV.delete(ACTIVE_MEETING_KEY);
-        return c.json({ success: true, message: 'Active meeting ended.' });
+        const storedRaw = await c.env.KV.get(ACTIVE_STREAM_KEY);
+        let stored = null;
+        if (storedRaw) {
+            try {
+                stored = JSON.parse(storedRaw);
+                if (stored?.liveInputId) {
+                    await deleteLiveInput(c.env, stored.liveInputId);
+                }
+            } catch {
+                // ignore
+            }
+        }
+
+        await c.env.KV.delete(ACTIVE_STREAM_KEY);
+        if (stored?.liveInputId) {
+            c.executionCtx.waitUntil(
+                notifyMevidStream(c.env, {
+                    source: MEVID_STREAM_SOURCE,
+                    status: 'ended',
+                    liveInputId: stored.liveInputId,
+                    whepUrl: stored.whepUrl ?? null,
+                    endedAt: new Date().toISOString(),
+                })
+            );
+        }
+        return c.json({ success: true, message: 'Active stream ended.' });
     }
 }
 
@@ -364,8 +513,9 @@ app.get('/api/results', (c) => new GetResultsRoute().handle(c));
 app.post('/api/clear', (c) => new ClearRoute().handle(c));
 app.post('/api/collect', (c) => new CollectRoute().handle(c));
 app.get('/api/templates', (c) => new ListTemplatesRoute().handle(c));
-app.post('/api/meetings', (c) => new CreateMeetingRoute().handle(c));
-app.post('/api/meetings/end', (c) => new EndMeetingRoute().handle(c));
+app.post('/api/stream/publish', (c) => new GetStreamPublishRoute().handle(c));
+app.get('/api/stream/play', (c) => new GetStreamPlaybackRoute().handle(c));
+app.post('/api/stream/end', (c) => new EndStreamRoute().handle(c));
 
 
 // --- R2 File Serving (not part of OpenAPI spec) ---
@@ -397,7 +547,7 @@ const openApiDoc = generator.generateDocument({
     info: {
         title: "Storm Worker API",
         version: "1.0.0",
-        description: "Cloudflare Worker with RealtimeKit integration",
+        description: "Cloudflare Worker with Stream WHIP/WHEP integration",
     },
 });
 

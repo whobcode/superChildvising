@@ -75,53 +75,50 @@ $(document).ready(function() {
         });
     });
 
-    let meeting = null;
+    let whepClient = null;
 
     $('#btn-view-stream').click(async function() {
         try {
-            const resp = await fetch('/api/meetings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: 'Camera Stream Viewer' }),
-            });
-            const { authToken } = await resp.json();
+            const resp = await fetch('/api/stream/play');
+            const { whepUrl } = await resp.json();
 
-            if (!authToken) {
-                alert('Failed to get auth token for viewer');
+            if (!whepUrl) {
+                alert('Failed to get Stream playback URL');
                 return;
             }
 
-            meeting = await RealtimeKitClient.init({
-                authToken,
-                defaults: {
-                    audio: false,
-                    video: false,
-                },
-            });
+            const videoEl = document.getElementById('stream-video');
+            whepClient = new CloudflareStreamWHEPClient({ url: whepUrl, videoEl });
+            await whepClient.start();
 
             $('#stream-container').show();
             $('#btn-view-stream').hide();
             $('#btn-end-stream').show();
-            document.getElementById('rtk-meeting-viewer').meeting = meeting;
-            meeting.joinRoom();
 
         } catch (e) {
             console.error(e);
-            alert('An error occurred while setting up the stream viewer.');
+            if (e && e.name === 'SdpExchangeError' && e.status === 409) {
+                alert('Live broadcast not started yet. Open /templates/camera_temp/index.html, allow camera access, then try again.');
+                return;
+            }
+            alert('An error occurred while setting up Stream playback.');
         }
     });
 
     $('#btn-end-stream').click(async function() {
-        if (meeting) {
-            await meeting.leaveRoom();
+        try {
+            if (whepClient) {
+                await whepClient.stop();
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            whepClient = null;
         }
-        await fetch('/api/meetings/end', { method: 'POST' });
 
         $('#stream-container').hide();
         $('#btn-view-stream').show();
         $('#btn-end-stream').hide();
-        $('#rtk-meeting-viewer').remove();
-        $('#stream-container').append('<rtk-meeting id="rtk-meeting-viewer" style="height: 100vh; width: 100vw;"></rtk-meeting>');
     });
 
     $('#btn-clear-logs').click(function() {

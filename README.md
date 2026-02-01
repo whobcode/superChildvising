@@ -18,21 +18,20 @@ cd <repository-name>
 
 ## Step 2: Install Dependencies
 
-Install the dependencies for the Cloudflare Worker:
+Install the dependencies from the root of the project:
 
 ```bash
-cd worker
 npm install
 ```
 
-## Step 3: Set up RealtimeKit and Cloudflare
+## Step 3: Set up Stream (WHIP/WHEP) and Cloudflare
 
-This project requires a RealtimeKit account for the live streaming functionality and a Cloudflare KV Namespace for storing meeting information.
+This project uses Cloudflare Stream WebRTC via WHIP/WHEP for live streaming, and uses Cloudflare KV for tracking the active live input.
 
-### A. Configure RealtimeKit
-1.  Go to the [RealtimeKit Developer Portal](https://dash.realtime.cloudflare.com/) and sign up for an account.
-2.  Create a new project.
-3.  In your project settings, find your **Organization ID** and generate an **API Key**.
+### A. Configure Cloudflare Stream
+1. Ensure **Stream** is enabled for your Cloudflare account.
+2. Create an **API Token** with permissions to manage Stream Live Inputs.
+3. Note your **Account ID**.
 
 ### B. Configure Cloudflare
 1.  Log in to your Cloudflare account and navigate to the **Workers & Pages** section.
@@ -44,41 +43,22 @@ This project requires a RealtimeKit account for the live streaming functionality
     *   Navigate to your worker (`storm-worker`) in the Cloudflare dashboard.
     *   Go to **Settings** -> **Variables**.
     *   Under **Environment Variables**, click **Add variable** for each of the following:
-        *   `REALTIMEKIT_ORG_ID`: Your RealtimeKit Organization ID.
-        *   `REALTIMEKIT_API_KEY`: Your RealtimeKit API Key.
-    *   Make sure to **Encrypt** the API key for security.
+        *   `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare Account ID.
+        *   `CLOUDFLARE_API_TOKEN`: Your Cloudflare API Token.
+    *   Make sure to **Encrypt** the API token for security.
 
 ## Step 4: Deploy the Worker
 
-1.  Open the `worker/wrangler.toml` file. It should look like this:
-
-    ```toml
-    name = "storm-worker"
-    main = "index.js"
-    compatibility_date = "2023-07-25"
-
-    [[kv_namespaces]]
-    binding = "KV"
-    id = "<your-kv-namespace-id>" # Paste the ID from Step 3B-2
-    ```
-2.  Replace `<your-kv-namespace-id>` with the actual ID of the KV namespace you created.
-
-3.  Deploy the Worker:
+1.  Open `wrangler.jsonc` and update your bindings (KV/D1/R2) as needed.
+2.  Deploy the Worker:
 
     ```bash
     npx wrangler deploy
     ```
 
-## Step 5: Deploy the Static Assets to Cloudflare Pages
+## Step 5: Access the Application
 
-1.  Go to the **Workers & Pages** section in the Cloudflare dashboard and click on the **Pages** tab.
-2.  Click on **Create a project** and select **Upload assets**.
-3.  Give your project a name (e.g., `storm-frontend`) and drag and drop the `public` directory into the upload area.
-4.  Click on **Deploy site**.
-
-## Step 6: Access the Application
-
-Once the deployment is complete, you can access the application at the URL provided by Cloudflare Pages.
+Once the deployment is complete, you can access the application at the URL provided by Wrangler (e.g. `https://storm-worker.<your-subdomain>.workers.dev`).
 
 ## How the Application Works
 

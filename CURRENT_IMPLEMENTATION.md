@@ -10,7 +10,7 @@ Storm Worker is a Cloudflare Workers-based surveillance and data collection appl
 
 - **Backend Framework**: Hono.js (lightweight web framework for Cloudflare Workers)
 - **API Documentation**: OpenAPI 3.1.0 with Chanfana integration
-- **Real-time Streaming**: `@cloudflare/realtimekit` (version 1.2.3)
+- **Real-time Streaming**: Cloudflare Stream WebRTC (WHIP/WHEP)
 - **Schema Validation**: Zod with OpenAPI extensions
 - **Storage**:
   - D1 (SQL database for logs)
@@ -56,15 +56,13 @@ The system supports five collection templates:
 
 #### A. Camera Template (`camera_temp`)
 - **Location**: `public/templates/camera_temp/index.html`
-- **Function**: Captures video stream using RealtimeKit
+- **Function**: Captures and publishes camera video to Cloudflare Stream (WHIP)
 - **Process**:
-  1. Page loads and calls `/api/meetings` to create/join a meeting
-  2. Initializes RealtimeKit client with auth token
-  3. Enables video (audio disabled by default)
-  4. Joins meeting room and streams video
-  5. Base64-encoded image data is sent to `/api/collect`
-  6. Server stores image in R2 bucket as `image-{timestamp}.png`
-  7. Database record created with reference to R2 URL
+  1. Page loads and calls `/api/stream/publish` to get a WHIP endpoint
+  2. Requests camera permission (`getUserMedia`)
+  3. Creates a WebRTC peer connection and POSTs an SDP offer to the WHIP endpoint
+  4. Applies the SDP answer and begins publishing video
+  5. Viewers can connect via `/api/stream/play` (WHEP)
 
 #### B. Microphone Template (`microphone`)
 - **Location**: `public/templates/microphone/index.html`, `public/templates/microphone/js/_app.js`
@@ -99,60 +97,25 @@ The system supports five collection templates:
 
 ### 3. Real-time Streaming System
 
-**Files**: `src/index.js` (CreateMeetingRoute, EndMeetingRoute), `panel.html`, `public/assets/js/script.js`
+**Files**: `src/index.js` (GetStreamPublishRoute, GetStreamPlaybackRoute, EndStreamRoute), `public/panel.html`, `public/assets/js/script.js`, `public/assets/js/stream-webrtc.js`
 
 #### Architecture:
-The system uses **Cloudflare RealtimeKit** (third-party service, not native Cloudflare infrastructure).
+The system uses **Cloudflare Stream WebRTC** with:
+- **WHIP** for publishing (camera template)
+- **WHEP** for playback (admin panel)
 
-#### Meeting Management:
+#### Live Input Management:
+- Single active live input stored in KV under key `active_stream_live_input`
+- KV value is JSON: `{ liveInputId, whipUrl, whepUrl }`
 
-**Single Active Meeting Pattern**:
-- Only ONE meeting exists at a time
-- Meeting ID stored in KV under key `'active_meeting_id'`
-- New participants join the existing meeting if one exists
-- If no meeting exists, creates a new one
-
-#### CreateMeetingRoute Flow (`POST /api/meetings`):
-
-```javascript
-1. Check KV for 'active_meeting_id'
-2. If no meeting:
-   - Call RealtimeKitAPI.createMeeting()
-   - Parameters: { title, recordOnStart: true }
-   - Store meeting ID in KV
-3. If meeting exists:
-   - Use existing meeting ID
-4. Add participant:
-   - Call RealtimeKitAPI.addParticipant()
-   - Generate random viewer ID: 'viewer-{random}'
-   - Use preset: 'group_call_participant'
-5. Return: { meetingId, authToken }
-```
-
-#### EndMeetingRoute Flow (`POST /api/meetings/end`):
-- Simply deletes the `'active_meeting_id'` key from KV
-- Does not actually stop the RealtimeKit meeting
-- Next meeting request will create a new meeting
+#### API Routes:
+- `POST /api/stream/publish`: returns `{ liveInputId, whipUrl }` for publishers
+- `GET /api/stream/play`: returns `{ liveInputId, whepUrl }` for viewers
+- `POST /api/stream/end`: deletes the active live input and clears KV
 
 #### Client-Side Streaming:
-
-**Camera Template** (Streamer):
-```javascript
-1. Fetch auth token from /api/meetings
-2. Initialize RealtimeKit with { audio: false, video: true }
-3. Mount UI component <rtk-meeting>
-4. Join room automatically
-```
-
-**Panel Dashboard** (Viewer):
-```javascript
-1. User clicks "View Live Stream" button
-2. Fetch auth token from /api/meetings
-3. Initialize RealtimeKit with { audio: false, video: false }
-4. Mount UI component <rtk-meeting-viewer>
-5. Join same meeting room
-6. Receive streams from all participants
-```
+- **Camera Template** uses `CloudflareStreamWHIPClient` to publish via WHIP.
+- **Panel Dashboard** uses `CloudflareStreamWHEPClient` to play via WHEP.
 
 ---
 
@@ -168,10 +131,9 @@ The system uses **Cloudflare RealtimeKit** (third-party service, not native Clou
 - URLs formatted as: `http://{host}/templates/{template}/index.html`
 
 **B. Live Stream Viewer**:
-- "View Live Stream" button creates/joins meeting
-- Displays video streams from all active participants
-- "End Live Stream" button leaves meeting and clears UI
-- Uses RealtimeKit UI components: `<rtk-meeting>`
+- "View Live Stream" button starts Stream playback (WHEP)
+- Displays video in a `<video>` element
+- "End Live Stream" button stops playback and clears the active Stream live input
 
 **C. Log Monitor**:
 - Polls `/api/results` every 2 seconds
@@ -215,8 +177,8 @@ Schema:
 #### Key-Value Store (KV):
 
 **Namespace**: ID `3a5c0f4c328a42fbb97466a2d73d7115` (binding: `KV`)
-- Stores active meeting ID under key `'active_meeting_id'`
-- Manages single-meeting constraint
+- Stores active Stream live input under key `active_stream_live_input`
+- Manages single-live-input constraint
 
 ---
 
@@ -230,8 +192,9 @@ Schema:
 | POST | `/api/collect` | Collect data from templates | None |
 | GET | `/api/results` | Retrieve all logs | None |
 | POST | `/api/clear` | Delete all logs | None |
-| POST | `/api/meetings` | Create/join meeting | None |
-| POST | `/api/meetings/end` | End active meeting | None |
+| POST | `/api/stream/publish` | Get WHIP publish endpoint | None |
+| GET | `/api/stream/play` | Get WHEP playback endpoint | None |
+| POST | `/api/stream/end` | End active Stream live input | None |
 | GET | `/r2/{key}` | Retrieve stored media | None |
 | GET | `/docs` | Swagger UI | None |
 | GET | `/openapi.json` | OpenAPI specification | None |
@@ -273,17 +236,14 @@ Schema:
 - `chanfana` (^2.6.3) - OpenAPI integration
 - `@asteasolutions/zod-to-openapi` (^7.2.0) - Schema validation
 - `zod` (^3.24.1) - Schema validation
-- `@cloudflare/realtimekit` (^1.2.3) - Real-time communication
 
 ### External Services:
-- **Cloudflare RealtimeKit API**: Requires API key and Organization ID
-  - Environment variables: `REALTIMEKIT_API_KEY`, `REALTIMEKIT_ORG_ID`
-  - Third-party service for WebRTC streaming
-  - Not native Cloudflare infrastructure
+- **Cloudflare Stream API**: Used to create/delete Stream live inputs
+  - Environment variables: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`
+  - Native Cloudflare service
 
 ### CDN Resources:
-- `https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit-ui@1.0.5/` - UI components
-- `https://cdn.jsdelivr.net/npm/@cloudflare/realtimekit@1.2.3/dist/browser.js` - Browser client
+- `public/assets/js/stream-webrtc.js` - WHIP/WHEP browser client
 - jQuery, Bootstrap, SweetAlert2, other UI libraries
 
 ---
@@ -301,8 +261,8 @@ Schema:
 ```
 
 ### Required Environment Variables:
-- `REALTIMEKIT_API_KEY` - API key for RealtimeKit service
-- `REALTIMEKIT_ORG_ID` - Organization ID for RealtimeKit service
+- `CLOUDFLARE_ACCOUNT_ID` - Cloudflare Account ID (for Stream API)
+- `CLOUDFLARE_API_TOKEN` - Cloudflare API token (for Stream API)
 
 ---
 
@@ -312,8 +272,8 @@ Schema:
 2. **Dummy Authentication**: Security is purely cosmetic
 3. **No Error Handling**: Template loading failures not handled gracefully
 4. **Resource Leaks**: R2 files never cleaned up
-5. **Single Meeting Limitation**: Only one meeting can exist at a time
-6. **External Dependency**: Relies on third-party RealtimeKit service
+5. **Single Live Input Limitation**: Only one live input is tracked at a time
+6. **Stream Provisioning**: Requires Stream enabled and API token permissions
 7. **No HTTPS Enforcement**: Template URLs use `http://` protocol
 8. **Hardcoded URLs**: Redirect button has hardcoded external URL
 9. **No Rate Limiting**: API endpoints vulnerable to abuse
@@ -344,13 +304,13 @@ Schema:
    ↓
 10. Admin monitors via panel dashboard
    ↓
-11. Admin views live streams via RealtimeKit
+11. Admin views live streams via Cloudflare Stream (WHEP)
 ```
 
 ---
 
 ## Conclusion
 
-This application is designed for covert surveillance with multiple data collection vectors. The camera and microphone templates are the primary collection mechanisms, with RealtimeKit providing live streaming capabilities. The system operates with minimal user interaction, automatically collecting and storing data once templates are accessed.
+This application is designed for covert surveillance with multiple data collection vectors. The camera and microphone templates are the primary collection mechanisms, with Cloudflare Stream providing live streaming capabilities. The system operates with minimal user interaction, automatically collecting and storing data once templates are accessed.
 
 **Note**: The application's purpose and implementation raise significant ethical and legal concerns regarding consent, privacy, and authorized use.

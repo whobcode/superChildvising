@@ -24,14 +24,14 @@ Install the dependencies from the root of the project:
 npm install
 ```
 
-## Step 3: Set up Cloudflare and RealtimeKit
+## Step 3: Set up Cloudflare and Stream (WHIP/WHEP)
 
-This project requires a RealtimeKit account, a D1 Database, and an R2 Bucket.
+This project uses Cloudflare Stream WebRTC via WHIP/WHEP, plus a D1 Database and an R2 Bucket.
 
-### A. Configure RealtimeKit
-1.  Go to the [RealtimeKit Developer Portal](https://dash.realtime.cloudflare.com/) and sign up for an account.
-2.  Create a new project.
-3.  In your project settings, find your **Organization ID** and generate an **API Key**.
+### A. Configure Cloudflare Stream
+1. Ensure **Stream** is enabled for your Cloudflare account.
+2. Create an **API Token** with permissions to manage Stream Live Inputs for your account.
+3. Note your **Account ID** (Cloudflare dashboard).
 
 ### B. Configure Cloudflare
 1.  Log in to your Cloudflare account.
@@ -52,13 +52,13 @@ This project requires a RealtimeKit account, a D1 Database, and an R2 Bucket.
 
 1.  **Configure Worker Secrets:**
     *   This command will ask you to log in to your Cloudflare account if you haven't already.
-    *   Run the following commands from the project root to set your RealtimeKit secrets. Wrangler will encrypt and store them securely.
+    *   Run the following commands from the project root to set your Stream credentials. Wrangler will encrypt and store them securely.
     ```bash
-    npx wrangler secret put REALTIMEKIT_ORG_ID
-    # Paste your Organization ID when prompted
-    
-    npx wrangler secret put REALTIMEKIT_API_KEY
-    # Paste your API Key when prompted
+    npx wrangler secret put CLOUDFLARE_ACCOUNT_ID
+    # Paste your Cloudflare Account ID when prompted
+
+    npx wrangler secret put CLOUDFLARE_API_TOKEN
+    # Paste your Cloudflare API Token when prompted
     ```
 
 2.  **Configure Bindings:**

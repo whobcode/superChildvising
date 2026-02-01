@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.2.0",
-    "@cloudflare/realtimekit": "^1.2.3",
     "chanfana": "^2.6.3",
     "hono": "^4.6.20",
     "zod": "^3.24.1"
@@ -18,6 +17,6 @@
   "devDependencies": {
     "@types/node": "^22.13.0",
     "@types/service-worker-mock": "^2.0.4",
-    "wrangler": "^4.33.2"
+    "wrangler": "^4.61.1"
   }
 }
