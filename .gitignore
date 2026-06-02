@@ -9,3 +9,6 @@ node_modules/
 node_modules/@cloudflare/workerd-linux-64/bin/workerd
 
 node_modules/
+
+# local Wrangler/build state
+.wrangler/
